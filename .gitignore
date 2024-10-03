@@ -31,3 +31,36 @@
 
 # Ignore master key for decrypting credentials and more.
 /config/master.key
+
+# Virtual Environment
+venv/
+*.pyc
+__pycache__/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Database files
+*.sqlite3
+
+# Environment variables
+.env
+
+# Dependency directories
+node_modules/
