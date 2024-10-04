@@ -8,7 +8,9 @@ Rails.application.routes.draw do
     end
     
     resources :scores, only: [:index, :show, :update, :destroy]
+    resources :users, only: [:create]
   end
 
   get "up" => "rails/health#show", as: :rails_health_check
+
 end
