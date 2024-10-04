@@ -3,10 +3,8 @@ module Api
     def upload
       image = params[:image]
       if image.present?
-        # Store the image and return its ID or path
-        # This is a placeholder - implement actual storage logic
         image_path = store_image(image)
-        render json: { status: 'uploaded', image_id: image_path }
+        render json: { status: 'success', image_id: image_path }, status: :ok
       else
         render json: { status: 'error', message: 'No image provided' }, status: :bad_request
       end
@@ -17,10 +15,9 @@ module Api
       if image_path.present?
         begin
           musicxml = OmrService.process_image(image_path)
-          # Store the processed score in the database
-          score = Score.create(xml_data: musicxml)
-          render json: { status: 'processed', score_id: score.id }
-        rescue => e
+          score = Score.create!(xml_data: musicxml)
+          render json: { status: 'success', score_id: score.id }, status: :created
+        rescue StandardError => e
           render json: { status: 'error', message: e.message }, status: :unprocessable_entity
         end
       else
