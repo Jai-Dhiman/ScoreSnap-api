@@ -64,3 +64,13 @@ Thumbs.db
 
 # Dependency directories
 node_modules/
+
+# Virtual environment
+oemer_env/
+
+# OEMER output files
+*.musicxml
+*.png
+
+# OEMER cache
+oemer_cache/

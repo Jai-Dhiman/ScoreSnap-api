@@ -5,6 +5,10 @@ class OmrService
   class OmrError < StandardError; end
 
   def self.process_image(image_path)
+  Rails.logger.info "OmrService processing image at path: #{image_path}"
+   Rails.logger.info "File exists: #{File.exist?(image_path)}"
+   Rails.logger.info "File readable: #{File.readable?(image_path)}"
+
     output_dir = Rails.root.join('tmp', 'omr_output')
     FileUtils.mkdir_p(output_dir)
 
@@ -41,7 +45,7 @@ class OmrService
     image.contrast
     
     # Apply adaptive thresholding
-    image.adaptive_threshold(3, 3, 0)
+    image.threshold('50%')
     
     # Save the preprocessed image
     preprocessed_path = File.join(File.dirname(image_path), "preprocessed_#{File.basename(image_path)}")
@@ -52,10 +56,11 @@ class OmrService
   end
 
   def self.run_omr(image_path, output_dir)
-    command = "oemer #{image_path}"
+    venv_path = Rails.root.join('oemer_env', 'bin', 'activate')
+    command = "source #{venv_path} && oemer #{image_path} && deactivate"
     Rails.logger.info "Running OMR command: #{command}"
 
-    stdout, stderr, status = Open3.capture3(command, chdir: output_dir)
+    stdout, stderr, status = Open3.capture3({ 'SHELL' => '/bin/bash' }, command, chdir: output_dir)
 
     unless status.success?
       Rails.logger.error "OMR processing failed: #{stderr}"
