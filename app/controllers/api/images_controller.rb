@@ -17,7 +17,7 @@ module Api
           musicxml = OmrService.process_image(image_path)
           score = Score.create!(xml_data: musicxml)
           render json: { status: 'success', score_id: score.id }, status: :created
-        rescue StandardError => e
+        rescue OmrService::OmrError => e
           render json: { status: 'error', message: e.message }, status: :unprocessable_entity
         end
       else
