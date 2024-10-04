@@ -15,23 +15,23 @@ RSpec.describe Api::ImagesController, type: :controller do
     end
   end
 
-  describe "POST #process" do
+  describe "POST #process_image" do
     it "processes an image successfully" do
       allow(OmrService).to receive(:process_image).and_return("<score></score>")
-      post :process, params: { image_path: '/path/to/image.png' }
+      post :process_image, params: { image_path: '/path/to/image.png' }
       expect(response).to have_http_status(:created)
       expect(JSON.parse(response.body)['status']).to eq('success')
     end
 
     it "returns an error if processing fails" do
       allow(OmrService).to receive(:process_image).and_raise(StandardError.new("Processing failed"))
-      post :process, params: { image_path: '/path/to/image.png' }
+      post :process_image, params: { image_path: '/path/to/image.png' }
       expect(response).to have_http_status(:unprocessable_entity)
       expect(JSON.parse(response.body)['status']).to eq('error')
     end
 
     it "returns an error if no image path is provided" do
-      post :process
+      post :process_image
       expect(response).to have_http_status(:bad_request)
       expect(JSON.parse(response.body)['status']).to eq('error')
     end

@@ -10,7 +10,7 @@ module Api
       end
     end
 
-    def process
+    def process_image
       image_path = params[:image_path]
       if image_path.present?
         begin

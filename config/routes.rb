@@ -3,7 +3,7 @@ Rails.application.routes.draw do
     resources :images, only: [] do
       collection do
         post 'upload'
-        post 'process'
+        post 'process_image'
       end
     end
     
