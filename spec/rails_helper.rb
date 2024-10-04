@@ -60,6 +60,9 @@ RSpec.configure do |config|
   # The different available types are documented in the features, such as in
   # https://rspec.info/features/7-0/rspec-rails
   config.infer_spec_type_from_file_location!
+  config.use_transactional_fixtures = true
+  config.include Rails.application.routes.url_helpers
+  config.include ActionDispatch::TestProcess
 
   # Filter lines from Rails gems in backtraces.
   config.filter_rails_from_backtrace!

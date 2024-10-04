@@ -4,7 +4,7 @@ module Api
       image = params[:image]
       if image.present?
         image_path = store_image(image)
-        render json: { status: 'success', image_id: image_path }, status: :ok
+        render json: { status: 'success', image_path: image_path }, status: :ok
       else
         render json: { status: 'error', message: 'No image provided' }, status: :bad_request
       end
