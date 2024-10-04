@@ -1,5 +1,5 @@
 module Api
-  class UsersController < ApplicationController
+  class UsersController < ApiController
     def create
       user = User.new(
         name: params[:name],

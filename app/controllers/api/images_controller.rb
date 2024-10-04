@@ -1,5 +1,5 @@
 module Api
-  class ImagesController < ApplicationController
+  class ImagesController < ApiController
     def upload
       image = params[:image]
       if image.present?

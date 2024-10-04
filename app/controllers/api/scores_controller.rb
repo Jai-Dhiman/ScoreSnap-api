@@ -1,5 +1,5 @@
 module Api
-  class ScoresController < ApplicationController
+  class ScoresController < ApiController
     def index
       scores = Score.all
       render json: { status: 'success', data: scores }, status: :ok
