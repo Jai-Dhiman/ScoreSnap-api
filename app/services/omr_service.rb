@@ -5,9 +5,9 @@ class OmrService
   class OmrError < StandardError; end
 
   def self.process_image(image_path)
-  Rails.logger.info "OmrService processing image at path: #{image_path}"
-   Rails.logger.info "File exists: #{File.exist?(image_path)}"
-   Rails.logger.info "File readable: #{File.readable?(image_path)}"
+    Rails.logger.info "OmrService processing image at path: #{image_path}"
+    Rails.logger.info "File exists: #{File.exist?(image_path)}"
+    Rails.logger.info "File readable: #{File.readable?(image_path)}"
 
     output_dir = Rails.root.join('tmp', 'omr_output')
     FileUtils.mkdir_p(output_dir)
@@ -32,35 +32,31 @@ class OmrService
 
   def self.preprocess_image(image_path)
     Rails.logger.info "Preprocessing image: #{image_path}"
-    
     image = MiniMagick::Image.open(image_path)
-    
+
     # Resize the image to a standard size (adjust as needed)
     image.resize "2000x2000>"
-    
+
     # Convert to grayscale
     image.colorspace "Gray"
-    
+
     # Increase contrast
     image.contrast
-    
-    # Apply adaptive thresholding
-    image.threshold('50%')
-    
+
     # Save the preprocessed image
     preprocessed_path = File.join(File.dirname(image_path), "preprocessed_#{File.basename(image_path)}")
     image.write preprocessed_path
-    
+
     Rails.logger.info "Preprocessed image saved to: #{preprocessed_path}"
     preprocessed_path
   end
 
   def self.run_omr(image_path, output_dir)
-    venv_path = Rails.root.join('oemer_env', 'bin', 'activate')
-    command = "source #{venv_path} && oemer #{image_path} && deactivate"
-    Rails.logger.info "Running OMR command: #{command}"
+    audiveris_script = Rails.root.join('lib', 'run_audiveris.sh')
+    command = "#{audiveris_script} -input #{image_path} -export -output #{output_dir}"
 
-    stdout, stderr, status = Open3.capture3({ 'SHELL' => '/bin/bash' }, command, chdir: output_dir)
+    Rails.logger.info "Running OMR command: #{command}"
+    stdout, stderr, status = Open3.capture3(command)
 
     unless status.success?
       Rails.logger.error "OMR processing failed: #{stderr}"
