@@ -1,7 +1,3 @@
 #!/bin/bash
-
-# Path to your Audiveris installation
-AUDIVERIS_PATH="/Documents/ScoreSnap/audiveris"
-
-# Run Audiveris with the provided arguments
-$AUDIVERIS_PATH/bin/Audiveris "$@"
+AUDIVERIS_INSTALL="$HOME/Documents/ScoreSnap/audiveris-install/Audiveris-5.3.1"
+"$AUDIVERIS_INSTALL/bin/Audiveris" "$@"

@@ -13,15 +13,9 @@ class OmrService
     FileUtils.mkdir_p(output_dir)
 
     begin
-      # Preprocess the image
       preprocessed_image = preprocess_image(image_path)
-
-      # Run OMR
       xml_content = run_omr(preprocessed_image, output_dir)
-
-      # Validate MusicXML
       validate_musicxml(xml_content)
-
       xml_content
     ensure
       FileUtils.rm_rf(output_dir)
@@ -34,30 +28,28 @@ class OmrService
     Rails.logger.info "Preprocessing image: #{image_path}"
     image = MiniMagick::Image.open(image_path)
 
-    # Resize the image to a standard size (adjust as needed)
+    Rails.logger.info "Resizing image"
     image.resize "2000x2000>"
 
-    # Convert to grayscale
+    Rails.logger.info "Converting to grayscale"
     image.colorspace "Gray"
 
-    # Increase contrast
+    Rails.logger.info "Increasing contrast"
     image.contrast
 
-    # Save the preprocessed image
     preprocessed_path = File.join(File.dirname(image_path), "preprocessed_#{File.basename(image_path)}")
     image.write preprocessed_path
-
     Rails.logger.info "Preprocessed image saved to: #{preprocessed_path}"
+
     preprocessed_path
   end
 
   def self.run_omr(image_path, output_dir)
     audiveris_script = Rails.root.join('lib', 'run_audiveris.sh')
-    command = "#{audiveris_script} -input #{image_path} -export -output #{output_dir}"
-
+    command = "bash #{audiveris_script} -input #{image_path} -export -output #{output_dir}"
     Rails.logger.info "Running OMR command: #{command}"
-    stdout, stderr, status = Open3.capture3(command)
 
+    stdout, stderr, status = Open3.capture3(command)
     unless status.success?
       Rails.logger.error "OMR processing failed: #{stderr}"
       raise OmrError, "OMR processing failed: #{stderr}"
