@@ -46,21 +46,25 @@ class OmrService
 
   def self.run_omr(image_path, output_dir)
     audiveris_script = Rails.root.join('lib', 'run_audiveris.sh')
-    command = "bash #{audiveris_script} -input #{image_path} -export -output #{output_dir}"
+    command = "bash #{audiveris_script} -batch -export -output \"#{output_dir}\" -- \"#{image_path}\""
     Rails.logger.info "Running OMR command: #{command}"
-
     stdout, stderr, status = Open3.capture3(command)
-    unless status.success?
-      Rails.logger.error "OMR processing failed: #{stderr}"
-      raise OmrError, "OMR processing failed: #{stderr}"
-    end
-
-    xml_file = Dir.glob(File.join(output_dir, '*.musicxml')).first
-    if xml_file
-      File.read(xml_file)
+    Rails.logger.info "Audiveris stdout: #{stdout}"
+    Rails.logger.info "Audiveris stderr: #{stderr}"
+    
+    xml_file = Dir.glob(File.join(output_dir, '*.{musicxml,mxl}')).first
+    if xml_file && File.size?(xml_file)
+      content = File.read(xml_file)
+      if content.start_with?('<?xml')
+        content
+      else
+        Rails.logger.error "Generated file is not valid XML: #{content[0..100]}"
+        raise OmrError, "Generated file is not valid XML"
+      end
     else
-      Rails.logger.error "OMR processing failed: No output file generated"
-      raise OmrError, "OMR processing failed: No output file generated"
+      Rails.logger.error "OMR processing failed: No valid output file generated"
+      Rails.logger.error "Output directory contents: #{Dir.entries(output_dir)}"
+      raise OmrError, "OMR processing failed: No valid output file generated"
     end
   end
 
