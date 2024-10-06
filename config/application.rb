@@ -17,7 +17,7 @@ module ScoreSnapApi
     config.autoload_lib(ignore: %w(assets tasks))
 
     # Configuration for the application, engines, and railties goes here.
-    #
+    #config.before_configuration do
     # These settings can be overridden in specific environments using the files
     # in config/environments, which are processed later.
     #
@@ -28,5 +28,13 @@ module ScoreSnapApi
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+    config.before_configuration do
+      env_file = File.join(Rails.root, 'config', 'local_env.yml')
+      if File.exist?(env_file)
+        YAML.load(File.open(env_file)).each do |key, value|
+          ENV[key.to_s] = value.to_s
+        end
+      end
+    end
   end
 end

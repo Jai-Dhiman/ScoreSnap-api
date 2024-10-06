@@ -1,3 +1,5 @@
+require 'fileutils'
+
 module Api
   class ImagesController < ApiController
     def upload
@@ -17,13 +19,31 @@ module Api
         Rails.logger.info "File exists: #{File.exist?(image_path)}"
         Rails.logger.info "File readable: #{File.readable?(image_path)}"
         begin
-          musicxml = OmrService.process_image(image_path)
-          score = Score.create!(xml_data: musicxml)
-          render json: { status: 'success', score_id: score.id }, status: :created
+          mxl_content = OmrService.process_image(image_path)
+          
+          # Create the scores directory if it doesn't exist
+          scores_dir = Rails.root.join('public', 'scores')
+          FileUtils.mkdir_p(scores_dir)
+          
+          # Save the MusicXML content to a file
+          file_name = "score_#{Time.now.to_i}.mxl"
+          file_path = File.join(scores_dir, file_name)
+          File.open(file_path, 'wb') do |file|
+            file.write(mxl_content)
+          end
+          
+          # Create a new Score record in the database
+          score = Score.create!(file_path: "/scores/#{file_name}")
+          
+          render json: { status: 'success', score_id: score.id, file_path: "/scores/#{file_name}" }, status: :created
         rescue OmrService::OmrError => e
           Rails.logger.error "Error processing image: #{e.message}"
           Rails.logger.error e.backtrace.join("\n")
           render json: { status: 'error', message: e.message }, status: :unprocessable_entity
+        rescue => e
+          Rails.logger.error "Unexpected error: #{e.message}"
+          Rails.logger.error e.backtrace.join("\n")
+          render json: { status: 'error', message: "An unexpected error occurred" }, status: :internal_server_error
         end
       else
         render json: { status: 'error', message: 'No image path provided' }, status: :bad_request

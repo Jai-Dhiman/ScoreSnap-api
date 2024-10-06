@@ -7,7 +7,12 @@ Rails.application.routes.draw do
       end
     end
     
-    resources :scores, only: [:index, :show, :update, :destroy]
+    resources :scores, only: [:index, :show, :update, :destroy] do
+      member do
+        get 'download'
+      end
+    end
+
     resources :users, only: [:create]
     post "/sessions" => "sessions#create"
   end

@@ -26,6 +26,7 @@
 #     en:
 #       "yes": yup
 #       enabled: "ON"
+TESSDATA_PREFIX: /usr/local/share/tessdata
 
 en:
   hello: "Hello world"
