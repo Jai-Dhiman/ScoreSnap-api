@@ -54,7 +54,7 @@ module Api
     private
 
     def score_params
-      params.require(:score).permit(:xml_data, :file_path)
+      params.require(:score).permit(:file_path)
     end
     end
   end

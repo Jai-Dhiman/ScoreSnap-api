@@ -29,4 +29,9 @@
 TESSDATA_PREFIX: /usr/local/share/tessdata
 
 en:
-  hello: "Hello world"
+  activerecord:
+    models:
+      score: "Score"
+    attributes:
+      score:
+        file_path: "File path"

@@ -15,35 +15,28 @@ module Api
     def process_image
       image_path = params[:image_path]
       if image_path.present?
-        Rails.logger.info "Attempting to process image at path: #{image_path}"
-        Rails.logger.info "File exists: #{File.exist?(image_path)}"
-        Rails.logger.info "File readable: #{File.readable?(image_path)}"
         begin
           mxl_content = OmrService.process_image(image_path)
           
-          # Create the scores directory if it doesn't exist
           scores_dir = Rails.root.join('public', 'scores')
           FileUtils.mkdir_p(scores_dir)
           
-          # Save the MusicXML content to a file
           file_name = "score_#{Time.now.to_i}.mxl"
           file_path = File.join(scores_dir, file_name)
           File.open(file_path, 'wb') do |file|
             file.write(mxl_content)
           end
           
-          # Create a new Score record in the database
-          score = Score.create!(file_path: "/scores/#{file_name}")
-          
-          render json: { status: 'success', score_id: score.id, file_path: "/scores/#{file_name}" }, status: :created
-        rescue OmrService::OmrError => e
+          score = Score.new(file_path: "/scores/#{file_name}")
+          if score.save
+            render json: { status: 'success', score_id: score.id, file_path: "/scores/#{file_name}" }, status: :created
+          else
+            render json: { status: 'error', message: score.errors.full_messages }, status: :unprocessable_entity
+          end
+        rescue => e
           Rails.logger.error "Error processing image: #{e.message}"
           Rails.logger.error e.backtrace.join("\n")
-          render json: { status: 'error', message: e.message }, status: :unprocessable_entity
-        rescue => e
-          Rails.logger.error "Unexpected error: #{e.message}"
-          Rails.logger.error e.backtrace.join("\n")
-          render json: { status: 'error', message: "An unexpected error occurred" }, status: :internal_server_error
+          render json: { status: 'error', message: e.message }, status: :internal_server_error
         end
       else
         render json: { status: 'error', message: 'No image path provided' }, status: :bad_request

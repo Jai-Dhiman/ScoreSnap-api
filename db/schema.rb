@@ -10,14 +10,13 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_10_06_002916) do
+ActiveRecord::Schema[7.1].define(version: 2024_10_06_004511) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
   create_table "scores", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.text "xml_data", null: false
     t.string "file_path"
   end
 
