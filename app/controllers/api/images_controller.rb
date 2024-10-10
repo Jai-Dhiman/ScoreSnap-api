@@ -1,58 +1,61 @@
-require 'fileutils'
-
 module Api
-  class ImagesController < ApiController
-    def upload
-      image = params[:image]
-      if image.present?
-        image_path = store_image(image)
-        render json: { status: 'success', image_path: image_path }, status: :ok
-      else
-        render json: { status: 'error', message: 'No image provided' }, status: :bad_request
-      end
-    end
-
+  class ImagesController < ApplicationController
     def process_image
-      image_path = params[:image_path]
-      if image_path.present?
+      Rails.logger.debug "Process method called"
+      Rails.logger.debug "Params: #{params.inspect}"
+      Rails.logger.debug "Request content type: #{request.content_type}"
+      
+      file = params[:file]
+      Rails.logger.debug "File present: #{file.present?}"
+      
+      if file.present?
+        Rails.logger.debug "File details: #{file.inspect}"
         begin
-          mxl_content = OmrService.process_image(image_path)
+          original_filename = file.original_filename
+          Rails.logger.debug "Original filename: #{original_filename}"
           
-          scores_dir = Rails.root.join('public', 'scores')
-          FileUtils.mkdir_p(scores_dir)
+          extension = File.extname(original_filename)
+          base_name = File.basename(original_filename, extension)
+          Rails.logger.debug "Extension: #{extension}, Base name: #{base_name}"
           
-          file_name = "score_#{Time.now.to_i}.mxl"
-          file_path = File.join(scores_dir, file_name)
-          File.open(file_path, 'wb') do |file|
-            file.write(mxl_content)
-          end
+          temp_file = store_temp_file(file)
+          Rails.logger.debug "Temp file created: #{temp_file.path}"
           
-          score = Score.new(file_path: "/scores/#{file_name}")
-          if score.save
-            render json: { status: 'success', score_id: score.id, file_path: "/scores/#{file_name}" }, status: :created
-          else
-            render json: { status: 'error', message: score.errors.full_messages }, status: :unprocessable_entity
-          end
+          mxl_content = OmrService.process_file(temp_file.path)
+          Rails.logger.debug "MXL content generated, length: #{mxl_content&.length}"
+          
+          mxl_filename = "#{base_name}.mxl"
+
+          Rails.logger.debug "mxl_filename: #{mxl_filename.inspect}"
+          Rails.logger.debug "mxl_content length: #{mxl_content.length}"
+          Rails.logger.debug "Locale: #{I18n.locale}"
+          Rails.logger.debug "Available locales: #{I18n.available_locales}"
+          Rails.logger.debug "Default locale: #{I18n.default_locale}"
+          send_data mxl_content,
+                    type: 'application/vnd.recordare.musicxml+xml',
+                    disposition: "attachment; filename=\"#{mxl_filename}\"".force_encoding('ASCII-8BIT')
         rescue => e
-          Rails.logger.error "Error processing image: #{e.message}"
+          Rails.logger.error "Error processing file: #{e.message}"
           Rails.logger.error e.backtrace.join("\n")
-          render json: { status: 'error', message: e.message }, status: :internal_server_error
+          render json: { error: e.message }, status: :internal_server_error
+        ensure
+          temp_file.unlink if temp_file
         end
       else
-        render json: { status: 'error', message: 'No image path provided' }, status: :bad_request
+        Rails.logger.warn "No file provided in the request"
+        render json: { error: 'No file provided' }, status: :bad_request
       end
     end
 
     private
 
-    def store_image(image)
-      temp_file = Tempfile.new(['image', File.extname(image.original_filename)])
+    def store_temp_file(file)
+      temp_file = Tempfile.new(['upload', File.extname(file.original_filename)])
       temp_file.binmode
-      temp_file.write(image.read)
+      temp_file.write(file.read)
       temp_file.close
-      # In a real application, you'd move this file to a permanent location
-      # and return a path or ID that can be used to retrieve it later
-      temp_file.path
+      Rails.logger.debug "Temp file stored: #{temp_file.path}"
+      temp_file
     end
   end
 end
