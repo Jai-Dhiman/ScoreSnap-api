@@ -10,9 +10,10 @@ module ScoreSnapApi
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 7.1
     config.i18n.default_locale = :en
+    config.i18n.fallbacks = true
     config.i18n.enforce_available_locales = false
     config.i18n.load_path += Dir[Rails.root.join('config', 'locales', '**', '*.{rb,yml}')]
-    config.i18n.fallbacks = true
+    
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.
@@ -24,7 +25,7 @@ module ScoreSnapApi
     config.api_only = true
 
     # Add the services directory to the autoload paths
-    config.autoload_paths += %W(#{config.root}/app/services)
+    config.autoload_paths << "#{Rails.root}/app/services"
 
     # Load environment variables from local_env.yml
     config.before_configuration do

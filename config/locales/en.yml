@@ -26,7 +26,6 @@
 #     en:
 #       "yes": yup
 #       enabled: "ON"
-TESSDATA_PREFIX: /usr/local/share/tessdata
 
 en:
   activerecord:
@@ -35,3 +34,4 @@ en:
     attributes:
       score:
         file_path: "File path"
+  TESSDATA_PREFIX: /usr/local/share/tessdata
