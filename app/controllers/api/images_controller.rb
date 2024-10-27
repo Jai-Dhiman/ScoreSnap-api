@@ -13,6 +13,9 @@ module Api
         mxl_content = OmrService.process_file(temp_file.path)
         
         send_processed_file(mxl_content, "#{base_name}.mxl")
+      rescue OmrService::OmrError => e
+        Rails.logger.error("OMR Error: #{e.message}")
+        render_error(e.message, :unprocessable_entity)
       rescue StandardError => e
         Rails.logger.error("Error processing file: #{e.message}\n#{e.backtrace.join("\n")}")
         render_error(e.message)
@@ -38,7 +41,39 @@ module Api
     end
 
     def render_error(message, status = :internal_server_error)
-      render json: { error: message }, status: status
+      render json: {
+        error: message,
+        details: {
+          type: status,
+          timestamp: Time.current,
+          suggestions: error_suggestions(status, message)
+        }
+      }, status: status
+    end
+
+    def error_suggestions(status, message)
+      case status
+      when :unprocessable_entity
+        if message.include?('resolution')
+          ["Scan the image at 300 DPI or higher", 
+           "Use a flatbed scanner if possible",
+           "Avoid taking photos with a phone camera"]
+        elsif message.include?('contrast')
+          ["Ensure good lighting when scanning",
+           "Try adjusting the contrast before scanning",
+           "Make sure the score is printed clearly on white paper"]
+        else
+          ["Ensure the image is clear and well-lit",
+           "Check that the musical notation is standard",
+           "Try scanning at 300 DPI or higher"]
+        end
+      when :bad_request
+        ["Please select a file to upload",
+         "Supported formats: JPG, PNG, PDF"]
+      else
+        ["Please try again",
+         "If the problem persists, contact support"]
+      end
     end
   end
 end
