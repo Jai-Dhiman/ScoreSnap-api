@@ -74,13 +74,44 @@ class OmrService
       end
     end
 
+    def validate_and_fix_image!(image_path)
+      image = MiniMagick::Image.open(image_path)
+      
+      fixed = false
+      
+      skew = `convert #{image_path} -background white -deskew 40% /dev/null 2>&1`
+      if skew.include?("skew:") && skew.split("skew:")[1].to_f.abs > 0.1
+        image.deskew '40%'
+        fixed = true
+      end
+      
+      identify = image.identify
+      mean = identify[/mean:(.*?)\s/,1].to_f
+      std_dev = identify[/standard deviation:(.*?)\s/,1].to_f
+      
+      if std_dev < 20 
+        image.contrast
+        image.contrast
+        fixed = true
+      end
+      
+      if fixed
+        image.write image_path
+      end
+      
+      image_path
+    end
+
     def prepare_image(file_path)
       if File.extname(file_path).downcase == '.pdf'
-        convert_pdf_to_image(file_path)
+        image_path = convert_pdf_to_image(file_path)
+        validate_and_fix_image!(image_path)
+        enhance_staff_lines(image_path)
       else
+        validate_and_fix_image!(file_path)
         preprocess_image(file_path)
       end
-    end    
+    end 
 
     def convert_pdf_to_image(pdf_path)
       output_base = pdf_path.sub('.pdf', '')
@@ -88,12 +119,12 @@ class OmrService
       
       pdftoppm_cmd = [
         "pdftoppm",
-        "-r", "600",  
-        "-jpeg",      
+        "-r", "300", 
+        "-jpeg",
         "-singlefile",
-        "-gray",      
-        pdf_path,     
-        output_base   
+        "-gray",
+        pdf_path,
+        output_base
       ].join(" ")
       
       system(pdftoppm_cmd)
@@ -102,19 +133,37 @@ class OmrService
         raise OmrError, "Failed to convert PDF to image"
       end
       
-      # Additional image processing if needed
+      # Minimal preprocessing for PDF
       image = MiniMagick::Image.open(output_path)
       image.combine_options do |cmd|
-        cmd.resize "3000x4000>"  # Resize if smaller
-        cmd.contrast            # Improve contrast
-        cmd.sharpen "0x1.0"     # Sharpen
+        cmd.resize "2000x2000>" 
+        cmd.sharpen "0x0.5" 
       end
       image.write output_path
       
-      result = MiniMagick::Image.open(output_path)
-      Rails.logger.info("Converted PDF to image: #{result.width}x#{result.height} pixels")
+      Rails.logger.info("Converted PDF to image: #{image.width}x#{image.height} pixels")
       
       output_path
+    end
+
+    def enhance_staff_lines(image_path)
+      image = MiniMagick::Image.open(image_path)
+      
+      image.combine_options do |cmd|
+        cmd.colorspace 'gray'
+        cmd.auto_level
+        cmd.contrast
+        cmd.level '25%,75%' 
+      end
+      
+      image.combine_options do |cmd|
+        cmd.unsharp '2x0.5+0.5+0'
+        cmd.normalize
+      end
+      
+      enhanced_path = "#{image_path}_enhanced.jpg"
+      image.write enhanced_path
+      enhanced_path
     end
 
     def preprocess_image(image_path)
@@ -124,17 +173,62 @@ class OmrService
       image.contrast
       image.enhance
       image.sharpen
+      
       preprocessed_path = "#{image_path}_preprocessed.jpg"
       image.write preprocessed_path
-      preprocessed_path
-    end
+      enhance_staff_lines(preprocessed_path)
+    end 
 
-    def process_with_audiveris(image_path, output_dir)
-      command = build_audiveris_command(image_path, output_dir)
-      stdout, stderr, status = Open3.capture3(command)
+    def validate_staff_barlines!(output_dir)
+      book_xml = File.join(output_dir, 'book.xml')
+      return unless File.exist?(book_xml)
+    
+      doc = Nokogiri::XML(File.read(book_xml))
+      staff_nodes = doc.xpath('//staff')
       
-      log_audiveris_output(stdout, stderr)
-      handle_audiveris_result(status, stderr, output_dir)
+      staff_nodes.each do |staff|
+        barlines = staff.xpath('.//barline')
+        if barlines.empty?
+          raise OmrError, "Missing barlines in staff - poor image quality or staff line detection"
+        end
+      end
+    end
+    
+    def process_with_audiveris(image_path, output_dir, retry_count = 0)
+      return nil if retry_count > 2  
+      
+      begin
+        validate_and_fix_image!(image_path)
+        enhanced_image = enhance_staff_lines(image_path)
+        command = build_audiveris_command(enhanced_image, output_dir)
+        stdout, stderr, status = Open3.capture3(command)
+        
+        log_audiveris_output(stdout, stderr)
+        
+        if stderr.include?("PartBarline with no proper StaffBarline") ||
+           stderr.include?("no header clef") ||
+           stderr.include?("No target duration for measures")
+          
+          if retry_count == 0
+            image = MiniMagick::Image.open(image_path)
+            image.morphology 'close', 'horizontal:3'
+            image.write image_path
+          elsif retry_count == 1
+            image = MiniMagick::Image.open(image_path)
+            image.gaussian_blur '0x0.5'
+            image.sharpen
+            image.write image_path
+          end
+          
+          return process_with_audiveris(image_path, output_dir, retry_count + 1)
+        end
+        
+        handle_audiveris_result(status, stderr, output_dir)
+        
+      rescue => e
+        Rails.logger.error("Audiveris processing error: #{e.message}")
+        raise OmrError, "Failed to process score: #{e.message}"
+      end
     end
 
     def build_audiveris_command(image_path, output_dir)
@@ -150,7 +244,16 @@ class OmrService
         "-option", "staff.minStaffLength=0.2",
         "-option", "sheet.scale.plotting=true",  
         "-option", "default.interline=16",       
-        "-option", "filter.scale.maxCount=10",   
+        "-option", "filter.scale.maxCount=10",
+        "-option", "staff.line.detection=true",
+        "-option", "measure.minWidth=20",
+        "-option", "clef.minGrade=0.3",  
+        "-option", "note.grace.maxStemLength=6.0",
+        "-option", "note.grace.stemLengthRange=4.0",
+        "-option", "note.small.maxStemLength=6.0",
+        "-option", "note.small.stemLengthRange=4.0",
+        "-option", "staff.smallStaffLineThickness=1.5",
+        "-option", "staff.smallStaffScale=0.67",
         "-output", "\"#{output_dir}\"",
         "--",
         "\"#{image_path}\""

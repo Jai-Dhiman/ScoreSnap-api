@@ -46,9 +46,18 @@ module Api
         details: {
           type: status,
           timestamp: Time.current,
+          omr_errors: collect_omr_errors,
           suggestions: error_suggestions(status, message)
         }
       }, status: status
+    end
+    
+    def collect_omr_errors
+      {
+        staff_errors: @staff_errors,
+        barline_errors: @barline_errors,
+        measure_errors: @measure_errors
+      }
     end
 
     def error_suggestions(status, message)
