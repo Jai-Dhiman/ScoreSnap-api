@@ -11,8 +11,9 @@ module Api
         
         temp_file = store_temp_file(file)
         mxl_content = OmrService.process_file(temp_file.path)
-        
-        send_processed_file(mxl_content, "#{base_name}.mxl")
+
+        output_filename = Thread.current[:mxl_filename] || "#{base_name}.mxl"
+        send_processed_file(mxl_content, output_filename)
       rescue OmrService::OmrError => e
         Rails.logger.error("OMR Error: #{e.message}")
         render_error(e.message, :unprocessable_entity)
@@ -21,6 +22,7 @@ module Api
         render_error(e.message)
       ensure
         temp_file&.unlink
+        Thread.current[:mxl_filename] = nil 
       end
     end
 

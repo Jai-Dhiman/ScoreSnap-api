@@ -133,7 +133,6 @@ class OmrService
         raise OmrError, "Failed to convert PDF to image"
       end
       
-      # Minimal preprocessing for PDF
       image = MiniMagick::Image.open(output_path)
       image.combine_options do |cmd|
         cmd.resize "2000x2000>" 
@@ -223,7 +222,7 @@ class OmrService
           return process_with_audiveris(image_path, output_dir, retry_count + 1)
         end
         
-        handle_audiveris_result(status, stderr, output_dir)
+        handle_audiveris_result(status, stderr, output_dir, File.basename(image_path, File.extname(image_path)))
         
       rescue => e
         Rails.logger.error("Audiveris processing error: #{e.message}")
@@ -233,6 +232,7 @@ class OmrService
 
     def build_audiveris_command(image_path, output_dir)
       script_path = Rails.root.join('lib', 'run_audiveris.sh')
+      base_name = File.basename(image_path, File.extname(image_path))
       [
         "bash #{script_path}",
         "-batch",
@@ -264,18 +264,22 @@ class OmrService
       Rails.logger.info("Audiveris stdout: #{stdout}")
       Rails.logger.error("Audiveris stderr: #{stderr}") if stderr.present?
     end
-
-    def handle_audiveris_result(status, stderr, output_dir)
-      return find_and_read_mxl(output_dir) if status.success?
+    
+    def handle_audiveris_result(status, stderr, output_dir, original_basename)
+      return find_and_read_mxl(output_dir, original_basename) if status.success?
       
       raise OmrError, "Audiveris command failed: #{stderr}"
     end
 
-    def find_and_read_mxl(output_dir)
+    def find_and_read_mxl(output_dir, original_basename)
       mxl_file = Dir.glob(File.join(output_dir, '*.mxl')).first
-      return File.read(mxl_file) if mxl_file && File.size?(mxl_file)
-      
-      raise OmrError, "No valid .mxl file generated"
+      if mxl_file && File.size?(mxl_file)
+        content = File.read(mxl_file)
+        Thread.current[:mxl_filename] = "#{original_basename}.mxl"
+        content
+      else
+        raise OmrError, "No valid .mxl file generated"
+      end
     end
   end
 end
